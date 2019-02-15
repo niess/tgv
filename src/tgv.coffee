@@ -177,6 +177,35 @@ class GDML
                     curveSegments: 24
                 ).translate(0, 0, -0.5 * z)
 
+            xtru: (solid) ->
+                lunit = unit_of solid, "lunit"
+                z = (lunit * element.getAttribute("zPosition")                 \
+                     for element in solid.getElementsByTagName "section")
+                if (z.length != 2) or (z[0] != -z[1])
+                    console.error "unsuported xtru: #{name_of solid}"
+                    return undefined
+                z = 2 * z[1]
+
+                shape = new THREE.Shape
+                vertices = [...solid.getElementsByTagName "twoDimVertex"]
+                shape.moveTo(
+                    lunit * vertices[0].getAttribute "x"
+                    lunit * vertices[0].getAttribute "y"
+                )
+                for vertex in vertices[1..]
+                    shape.lineTo(
+                        lunit * vertex.getAttribute "x"
+                        lunit * vertex.getAttribute "y"
+                    )
+                shape.closePath()
+
+                new THREE.ExtrudeGeometry(shape,
+                    depth: z
+                    steps: 1
+                    bevelEnabled: false
+                    curveSegments: vertices.length + 1
+                ).translate(0, 0, -0.5 * z)
+
         for element in data.getElementsByTagName "solids"
             for solid in element.children
                 parse = parsers[solid.tagName]

@@ -185,6 +185,40 @@
             bevelEnabled: false,
             curveSegments: 24
           }).translate(0, 0, -0.5 * z);
+        },
+        xtru: function(solid) {
+          var element, k, len1, lunit, ref1, shape, vertex, vertices, z;
+          lunit = unit_of(solid, "lunit");
+          z = (function() {
+            var k, len1, ref1, results;
+            ref1 = solid.getElementsByTagName("section");
+            results = [];
+            for (k = 0, len1 = ref1.length; k < len1; k++) {
+              element = ref1[k];
+              results.push(lunit * element.getAttribute("zPosition"));
+            }
+            return results;
+          })();
+          if ((z.length !== 2) || (z[0] !== -z[1])) {
+            console.error(`unsuported xtru: ${name_of(solid)}`);
+            return void 0;
+          }
+          z = 2 * z[1];
+          shape = new THREE.Shape;
+          vertices = [...solid.getElementsByTagName("twoDimVertex")];
+          shape.moveTo(lunit * vertices[0].getAttribute("x"), lunit * vertices[0].getAttribute("y"));
+          ref1 = vertices.slice(1);
+          for (k = 0, len1 = ref1.length; k < len1; k++) {
+            vertex = ref1[k];
+            shape.lineTo(lunit * vertex.getAttribute("x"), lunit * vertex.getAttribute("y"));
+          }
+          shape.closePath();
+          return new THREE.ExtrudeGeometry(shape, {
+            depth: z,
+            steps: 1,
+            bevelEnabled: false,
+            curveSegments: vertices.length + 1
+          }).translate(0, 0, -0.5 * z);
         }
       };
       ref1 = data.getElementsByTagName("solids");
