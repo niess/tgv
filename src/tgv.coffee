@@ -50,7 +50,7 @@ class Viewer
         # Load and render the GDML
         loader = new THREE.FileLoader
         loader.load(
-            "comet.gdml"
+            "gdml/Phase-II-modDS.gdml"
             (data) ->
                 # Load the GDML objects
                 gdml = new GDML data
@@ -129,7 +129,6 @@ class GDML
                     color: name.hash() %% 0xffffff
                     transparent: true
                     opacity: 0.5
-                    wireframe: false
                     name: name
 
         # Build the solids
@@ -142,6 +141,37 @@ class GDML
                     unit * solid.getAttribute "y"
                     unit * solid.getAttribute "z"
                 )
+
+            polycone: (solid) ->
+                lunit = unit_of solid, "lunit"
+                aunit = unit_of solid, "aunit"
+                [phi0, dphi] = [
+                    aunit * solid.getAttribute "startphi"
+                    aunit * solid.getAttribute "deltaphi"
+                ]
+                zplanes = ([
+                        lunit * zplane.getAttribute "rmin"
+                        lunit * zplane.getAttribute "rmax"
+                        lunit * zplane.getAttribute "z"
+                    ] for zplane in solid.getElementsByTagName "zplane")
+
+                points = (new THREE.Vector2(rmax, z)                           \
+                         for [rmin, rmax, z] in zplanes[..].reverse())
+                inner = (new THREE.Vector2(rmin, z)                            \
+                         for [rmin, rmax, z] in zplanes if rmin > 0.0)
+                Array::push.apply points, inner
+                points.push points[0]
+
+                permutate = new THREE.Matrix4
+                permutate.set(
+                    0, 0, 1, 0,
+                    1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 0, 1
+                )
+                new THREE.LatheGeometry points, 24, phi0, dphi
+                    .applyMatrix permutate
+
 
             tube: (solid) ->
                 lunit = unit_of solid, "lunit"

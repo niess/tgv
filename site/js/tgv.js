@@ -49,7 +49,7 @@
       };
       // Load and render the GDML
       loader = new THREE.FileLoader;
-      return loader.load("comet.gdml", function(data) {
+      return loader.load("gdml/Phase-II-modDS.gdml", function(data) {
         var gdml, geometry, render, scale;
         // Load the GDML objects
         gdml = new GDML(data);
@@ -142,7 +142,6 @@
             color: modulo(name.hash(), 0xffffff),
             transparent: true,
             opacity: 0.5,
-            wireframe: false,
             name: name
           });
         }
@@ -154,6 +153,48 @@
           var unit;
           unit = unit_of(solid, "lunit");
           return new THREE.BoxGeometry(unit * solid.getAttribute("x"), unit * solid.getAttribute("y"), unit * solid.getAttribute("z"));
+        },
+        polycone: function(solid) {
+          var aunit, dphi, inner, lunit, permutate, phi0, points, rmax, rmin, z, zplane, zplanes;
+          lunit = unit_of(solid, "lunit");
+          aunit = unit_of(solid, "aunit");
+          [phi0, dphi] = [aunit * solid.getAttribute("startphi"), aunit * solid.getAttribute("deltaphi")];
+          zplanes = (function() {
+            var k, len1, ref1, results;
+            ref1 = solid.getElementsByTagName("zplane");
+            results = [];
+            for (k = 0, len1 = ref1.length; k < len1; k++) {
+              zplane = ref1[k];
+              results.push([lunit * zplane.getAttribute("rmin"), lunit * zplane.getAttribute("rmax"), lunit * zplane.getAttribute("z")]);
+            }
+            return results;
+          })();
+          points = (function() {
+            var k, len1, ref1, results;
+            ref1 = zplanes.slice(0).reverse();
+            results = [];
+            for (k = 0, len1 = ref1.length; k < len1; k++) {
+              [rmin, rmax, z] = ref1[k];
+              results.push(new THREE.Vector2(rmax, z));
+            }
+            return results;
+          })();
+          inner = ((function() {
+            var k, len1, results;
+            if (rmin > 0.0) {
+              results = [];
+              for (k = 0, len1 = zplanes.length; k < len1; k++) {
+                [rmin, rmax, z] = zplanes[k];
+                results.push(new THREE.Vector2(rmin, z));
+              }
+              return results;
+            }
+          })());
+          Array.prototype.push.apply(points, inner);
+          points.push(points[0]);
+          permutate = new THREE.Matrix4;
+          permutate.set(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1);
+          return new THREE.LatheGeometry(points, 24, phi0, dphi).applyMatrix(permutate);
         },
         tube: function(solid) {
           var aunit, direction, dphi, hole, lunit, phi0, phi1, rmax, rmin, shape, z;
