@@ -1,6 +1,6 @@
 MIN :=
 
-SCRIPTS := site/js/tgv$(MIN).js
+SCRIPTS := site/js/three.gdml$(MIN).js site/js/tgv$(MIN).js
 
 COFFEE := coffee
 MINIFY := google-closure-compiler
