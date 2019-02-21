@@ -49,7 +49,9 @@ class THREE.GDMLLoader
 
 
         # Build the materials
-        materials = {}
+        materials =
+            edges: new THREE.LineBasicMaterial(
+                color: 0xffffff)
         for material in data.getElementsByTagName "material"
             [name, state] = [name_of(material), material.getAttribute("state")]
             if state == "gas"
@@ -195,6 +197,15 @@ class THREE.GDMLLoader
         build = (name, volume) ->
             if volume.solid?
                 mesh = new THREE.Mesh volume.solid, volume.material
+                if volume.material.state == "solid"
+                    group = new THREE.Group
+                    group.name = "#{mesh.name}::Group"
+                    edges = new THREE.EdgesGeometry volume.solid
+                    line = new THREE.LineSegments edges, materials.edges
+                    line.name = "#{mesh.name}::Edges"
+                    group.add line
+                    group.add mesh
+                    mesh = group
             else
                 mesh = new THREE.Group
             mesh.name = name

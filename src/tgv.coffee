@@ -30,9 +30,9 @@ class Viewer
             # Create the ui
             ui = new UI renderer, camera, renderer.domElement, materials
             scene.add ui.viewPoint
-            ui.viewPoint.position.x = 0.5 * scale
-            ui.viewPoint.position.y = 0.5 * scale
-            ui.viewPoint.position.z = 0.5 * scale
+            ui.viewPoint.position.x = 8565.19
+            ui.viewPoint.position.y = 3872.13
+            ui.viewPoint.position.z = 8839.75
 
             # Return the rendering routine
             render = ->
@@ -236,7 +236,9 @@ class UI
             delta = do @clock.getDelta if !delta?
             @viewPoint.translateY(@walkSpeed * delta * dY)
             update = true
-        do @camera.updateProjectionMatrix if update
+        if update
+            do @camera.updateProjectionMatrix
+            console.log "Position:", @viewPoint.position
 
         if @_toggleView
             if @_toggleViewReady

@@ -31,9 +31,9 @@
         // Create the ui
         ui = new UI(renderer, camera, renderer.domElement, materials);
         scene.add(ui.viewPoint);
-        ui.viewPoint.position.x = 0.5 * scale;
-        ui.viewPoint.position.y = 0.5 * scale;
-        ui.viewPoint.position.z = 0.5 * scale;
+        ui.viewPoint.position.x = 8565.19;
+        ui.viewPoint.position.y = 3872.13;
+        ui.viewPoint.position.z = 8839.75;
         // Return the rendering routine
         render = function() {
           requestAnimationFrame(render);
@@ -278,6 +278,7 @@
       }
       if (update) {
         this.camera.updateProjectionMatrix();
+        console.log("Position:", this.viewPoint.position);
       }
       if (this._toggleView) {
         if (this._toggleViewReady) {

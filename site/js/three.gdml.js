@@ -52,7 +52,11 @@
         return modulo(h, 0xffffff);
       };
       // Build the materials
-      materials = {};
+      materials = {
+        edges: new THREE.LineBasicMaterial({
+          color: 0xffffff
+        })
+      };
       ref = data.getElementsByTagName("material");
       for (j = 0, len = ref.length; j < len; j++) {
         material = ref[j];
@@ -223,9 +227,19 @@
       }
       // Build the physical structures
       build = function(name, volume) {
-        var len4, mesh, o, object, physical, position, ref4, rotation, subvolume, unit;
+        var edges, group, len4, line, mesh, o, object, physical, position, ref4, rotation, subvolume, unit;
         if (volume.solid != null) {
           mesh = new THREE.Mesh(volume.solid, volume.material);
+          if (volume.material.state === "solid") {
+            group = new THREE.Group;
+            group.name = `${mesh.name}::Group`;
+            edges = new THREE.EdgesGeometry(volume.solid);
+            line = new THREE.LineSegments(edges, materials.edges);
+            line.name = `${mesh.name}::Edges`;
+            group.add(line);
+            group.add(mesh);
+            mesh = group;
+          }
         } else {
           mesh = new THREE.Group;
         }
