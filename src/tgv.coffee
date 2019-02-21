@@ -15,7 +15,7 @@ class Viewer
         scene = new THREE.Scene
 
         # Deferred configuration of the scene
-        scene.unveil = (scale) ->
+        scene.unveil = (scale, materials) ->
             # Configure the lighting
             scene.add new THREE.AmbientLight 0xffffff
 
@@ -28,7 +28,7 @@ class Viewer
                 75, w / h, 1e-03 * scale,  10 * scale)
 
             # Create the ui
-            ui = new UI renderer, camera, renderer.domElement
+            ui = new UI renderer, camera, renderer.domElement, materials
             scene.add ui.viewPoint
             ui.viewPoint.position.x = 0.5 * scale
             ui.viewPoint.position.y = 0.5 * scale
@@ -55,7 +55,7 @@ class Viewer
                 scene.add mesh
 
                 # Start the rendering loop
-                render = scene.unveil scale
+                render = scene.unveil scale, materials
                 do render
             (xhr) ->
                 console.log(
@@ -66,12 +66,13 @@ class Viewer
 
 
 class UI
-    constructor: (@renderer, @camera, @domElement) ->
+    constructor: (@renderer, @camera, @domElement, @materials) ->
         @stats = new Stats
         document.body.appendChild @stats.domElement
         @clock = new THREE.Clock true
 
         @walkSpeed = 5000.0
+        [@_toggleViewReady, @_xView] = [true, false]
 
         scope = this
         @_keyMap =
@@ -81,6 +82,7 @@ class UI
             KeyS: (state) -> scope._moveBackward = state
             KeyQ: (state) -> scope._moveDown = state
             KeyE: (state) -> scope._moveUp = state
+            KeyX: (state) -> scope._toggleView = state
 
         @_mouse =
             locked: false
@@ -173,6 +175,32 @@ class UI
             @_mouse.locked = false
 
 
+    toggleView: =>
+        @_xView = !@_xView
+        if @_xView
+            for _, material of @materials
+                if material.type == "gas"
+                    material.wireframe = true
+                    material.visible = true
+                else if material.type == "liquid"
+                    material.opacity = 0.25
+                else
+                    material.transparent = true
+                    material.opacity = 0.5
+                material.needsUpdate = true
+        else
+            for _, material of @materials
+                if material.type == "gas"
+                    material.wireframe = false
+                    material.visible = false
+                else if material.type == "liquid"
+                    material.opacity = 0.5
+                else
+                    material.transparent = false
+                    material.opacity = 1
+                material.needsUpdate = true
+
+
     update: ->
         do @stats.update
 
@@ -209,6 +237,13 @@ class UI
             @viewPoint.translateY(@walkSpeed * delta * dY)
             update = true
         do @camera.updateProjectionMatrix if update
+
+        if @_toggleView
+            if @_toggleViewReady
+                do @toggleView
+                @_toggleViewReady = false
+        else
+                @_toggleViewReady = true
 
 
 # Run the viewer

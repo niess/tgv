@@ -19,7 +19,7 @@
       // Create the scene
       scene = new THREE.Scene;
       // Deferred configuration of the scene
-      scene.unveil = function(scale) {
+      scene.unveil = function(scale, materials) {
         var camera, h, render, ui, w;
         // Configure the lighting
         scene.add(new THREE.AmbientLight(0xffffff));
@@ -29,7 +29,7 @@
         [w, h] = [window.innerWidth, window.innerHeight];
         camera = new THREE.PerspectiveCamera(75, w / h, 1e-03 * scale, 10 * scale);
         // Create the ui
-        ui = new UI(renderer, camera, renderer.domElement);
+        ui = new UI(renderer, camera, renderer.domElement, materials);
         scene.add(ui.viewPoint);
         ui.viewPoint.position.x = 0.5 * scale;
         ui.viewPoint.position.y = 0.5 * scale;
@@ -52,7 +52,7 @@
         // Add the GDML objects to the scene
         scene.add(mesh);
         // Start the rendering loop
-        render = scene.unveil(scale);
+        render = scene.unveil(scale, materials);
         return render();
       }, function(xhr) {
         return console.log(`${Math.round(xhr.loaded / xhr.total * 100)}% loaded`);
@@ -64,7 +64,7 @@
   };
 
   UI = class UI {
-    constructor(renderer1, camera1, domElement) {
+    constructor(renderer1, camera1, domElement, materials1) {
       var pitch, scope, yaw;
       this.onWindowResize = this.onWindowResize.bind(this);
       this.onKeyDown = this.onKeyDown.bind(this);
@@ -73,13 +73,16 @@
       this.onMouseMove = this.onMouseMove.bind(this);
       this.onMouseUp = this.onMouseUp.bind(this);
       this.onPointerLockChanged = this.onPointerLockChanged.bind(this);
+      this.toggleView = this.toggleView.bind(this);
       this.renderer = renderer1;
       this.camera = camera1;
       this.domElement = domElement;
+      this.materials = materials1;
       this.stats = new Stats;
       document.body.appendChild(this.stats.domElement);
       this.clock = new THREE.Clock(true);
       this.walkSpeed = 5000.0;
+      [this._toggleViewReady, this._xView] = [true, false];
       scope = this;
       this._keyMap = {
         KeyA: function(state) {
@@ -99,6 +102,9 @@
         },
         KeyE: function(state) {
           return scope._moveUp = state;
+        },
+        KeyX: function(state) {
+          return scope._toggleView = state;
         }
       };
       this._mouse = {
@@ -184,6 +190,46 @@
       }
     }
 
+    toggleView() {
+      var _, material, ref, ref1, results, results1;
+      this._xView = !this._xView;
+      if (this._xView) {
+        ref = this.materials;
+        results = [];
+        for (_ in ref) {
+          material = ref[_];
+          if (material.type === "gas") {
+            material.wireframe = true;
+            material.visible = true;
+          } else if (material.type === "liquid") {
+            material.opacity = 0.25;
+          } else {
+            material.transparent = true;
+            material.opacity = 0.5;
+          }
+          results.push(material.needsUpdate = true);
+        }
+        return results;
+      } else {
+        ref1 = this.materials;
+        results1 = [];
+        for (_ in ref1) {
+          material = ref1[_];
+          if (material.type === "gas") {
+            material.wireframe = false;
+            material.visible = false;
+          } else if (material.type === "liquid") {
+            material.opacity = 0.5;
+          } else {
+            material.transparent = false;
+            material.opacity = 1;
+          }
+          results1.push(material.needsUpdate = true);
+        }
+        return results1;
+      }
+    }
+
     update() {
       var dX, dY, dZ, delta, update;
       this.stats.update();
@@ -231,7 +277,15 @@
         update = true;
       }
       if (update) {
-        return this.camera.updateProjectionMatrix();
+        this.camera.updateProjectionMatrix();
+      }
+      if (this._toggleView) {
+        if (this._toggleViewReady) {
+          this.toggleView();
+          return this._toggleViewReady = false;
+        }
+      } else {
+        return this._toggleViewReady = true;
       }
     }
 

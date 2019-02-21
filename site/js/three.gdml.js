@@ -16,7 +16,7 @@
     }
 
     static parse(resource) {
-      var build, data, default_color, element, geometry, j, k, l, len, len1, len2, len3, m, material, materials, mesh, name, name_of, parse, parsers, ref, ref1, ref2, ref3, ref_of, solid, solids, state, unit_of, units, volume, volumes, world;
+      var build, data, default_color, element, geometry, j, k, l, len, len1, len2, len3, m, material, materials, mesh, n, name, name_of, parse, parsers, ref, ref1, ref2, ref3, ref_of, solid, solids, state, unit_of, units, volume, volumes, world;
       // Parse the GDML as an XML file
       data = new DOMParser().parseFromString(resource, "text/xml");
       // Shortcut for getting the name of a GDML element
@@ -58,21 +58,24 @@
         material = ref[j];
         [name, state] = [name_of(material), material.getAttribute("state")];
         if (state === "gas") {
-          materials[name] = new THREE.MeshBasicMaterial({
+          m = new THREE.MeshBasicMaterial({
             color: 0xcccccc,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.5,
-            name: name
+            wireframe: false,
+            visible: false
           });
-        } else {
-          materials[name] = new THREE.MeshBasicMaterial({
+        } else if (state === "liquid") {
+          m = new THREE.MeshBasicMaterial({
             color: default_color(name),
             transparent: true,
-            opacity: 0.5,
-            name: name
+            opacity: 0.5
+          });
+        } else {
+          m = new THREE.MeshBasicMaterial({
+            color: default_color(name)
           });
         }
+        [m.name, m.state] = [name, state];
+        materials[name] = m;
       }
       // Build the solids
       solids = {};
@@ -210,8 +213,8 @@
       // Unpack the volumes entities and their references
       volumes = {};
       ref3 = data.getElementsByTagName("volume");
-      for (m = 0, len3 = ref3.length; m < len3; m++) {
-        volume = ref3[m];
+      for (n = 0, len3 = ref3.length; n < len3; n++) {
+        volume = ref3[n];
         volumes[name_of(volume)] = {
           solid: solids[ref_of(volume, "solid")],
           material: materials[ref_of(volume, "material")],
@@ -220,7 +223,7 @@
       }
       // Build the physical structures
       build = function(name, volume) {
-        var len4, mesh, n, object, physical, position, ref4, rotation, subvolume, unit;
+        var len4, mesh, o, object, physical, position, ref4, rotation, subvolume, unit;
         if (volume.solid != null) {
           mesh = new THREE.Mesh(volume.solid, volume.material);
         } else {
@@ -232,8 +235,8 @@
           return mesh;
         }
         ref4 = volume.children;
-        for (n = 0, len4 = ref4.length; n < len4; n++) {
-          physical = ref4[n];
+        for (o = 0, len4 = ref4.length; o < len4; o++) {
+          physical = ref4[o];
           subvolume = volumes[ref_of(physical, "volume")];
           object = build(name_of(physical), subvolume);
           mesh.add(object);

@@ -53,18 +53,20 @@ class THREE.GDMLLoader
         for material in data.getElementsByTagName "material"
             [name, state] = [name_of(material), material.getAttribute("state")]
             if state == "gas"
-                materials[name] = new THREE.MeshBasicMaterial
+                m = new THREE.MeshBasicMaterial
                     color: 0xcccccc
-                    wireframe: true
-                    transparent: true
-                    opacity: 0.5
-                    name: name
-            else
-                materials[name] = new THREE.MeshBasicMaterial
+                    wireframe: false
+                    visible: false
+            else if state == "liquid"
+                m = new THREE.MeshBasicMaterial
                     color: default_color name
                     transparent: true
                     opacity: 0.5
-                    name: name
+            else
+                m = new THREE.MeshBasicMaterial
+                    color: default_color name
+            [m.name, m.state] = [name, state]
+            materials[name] = m
 
         # Build the solids
         solids = {}
