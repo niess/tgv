@@ -8,9 +8,7 @@
     }
 
     run() {
-      var loader, renderer, scene, ui;
-      // Create the ui
-      ui = new UI;
+      var loader, renderer, scene;
       // Initialise the renderer
       renderer = new THREE.WebGLRenderer({
         antialias: true
@@ -22,7 +20,7 @@
       scene = new THREE.Scene;
       // Deferred configuration of the scene
       scene.unveil = function(scale) {
-        var camera, controls, h, render, w;
+        var camera, h, render, ui, w;
         // Configure the lighting
         scene.add(new THREE.AmbientLight(0xffffff));
         // Add axes
@@ -30,18 +28,16 @@
         // Create and initialise the camera
         [w, h] = [window.innerWidth, window.innerHeight];
         camera = new THREE.PerspectiveCamera(75, w / h, 1e-03 * scale, 10 * scale);
-        camera.position.x = 0.5 * scale;
-        camera.position.y = 0.5 * scale;
-        camera.position.z = 0.5 * scale;
-        // Set the camera controls
-        controls = new THREE.TrackballControls(camera, renderer.domElement);
-        controls.rotateSpeed = 3.0;
-        controls.zoomSpeed = 0.5;
+        // Create the ui
+        ui = new UI(renderer, camera, renderer.domElement);
+        scene.add(ui.viewPoint);
+        ui.viewPoint.position.x = 0.5 * scale;
+        ui.viewPoint.position.y = 0.5 * scale;
+        ui.viewPoint.position.z = 0.5 * scale;
         // Return the rendering routine
         render = function() {
           requestAnimationFrame(render);
           renderer.render(scene, camera);
-          controls.update();
           return ui.update();
         };
         return render;
@@ -68,13 +64,175 @@
   };
 
   UI = class UI {
-    constructor() {
+    constructor(renderer1, camera1, domElement) {
+      var pitch, scope, yaw;
+      this.onWindowResize = this.onWindowResize.bind(this);
+      this.onKeyDown = this.onKeyDown.bind(this);
+      this.onKeyUp = this.onKeyUp.bind(this);
+      this.onMouseDown = this.onMouseDown.bind(this);
+      this.onMouseMove = this.onMouseMove.bind(this);
+      this.onMouseUp = this.onMouseUp.bind(this);
+      this.onPointerLockChanged = this.onPointerLockChanged.bind(this);
+      this.renderer = renderer1;
+      this.camera = camera1;
+      this.domElement = domElement;
       this.stats = new Stats;
       document.body.appendChild(this.stats.domElement);
+      this.clock = new THREE.Clock(true);
+      this.walkSpeed = 5000.0;
+      scope = this;
+      this._keyMap = {
+        KeyA: function(state) {
+          return scope._moveLeft = state;
+        },
+        KeyW: function(state) {
+          return scope._moveForward = state;
+        },
+        KeyD: function(state) {
+          return scope._moveRight = state;
+        },
+        KeyS: function(state) {
+          return scope._moveBackward = state;
+        },
+        KeyQ: function(state) {
+          return scope._moveDown = state;
+        },
+        KeyE: function(state) {
+          return scope._moveUp = state;
+        }
+      };
+      this._mouse = {
+        locked: false,
+        origin: new THREE.Vector2
+      };
+      // Smoothen the pointer lock API
+      this.domElement.requestPointerLock = this.domElement.requestPointerLock || this.domElement.mozRequestPointerLock || this.domElement.webkitPointerLockElement;
+      this._pointerLockElement = document.pointerLockElement || document.mozPointerLockElement || document.webkitPointerLockElement;
+      document.exitPointerLock = document.exitPointerLock || document.mozExitPointerLock || document.webkitExitPointerLock;
+      // Wrap the camera
+      pitch = new THREE.Object3D;
+      pitch.add(this.camera);
+      yaw = new THREE.Object3D;
+      yaw.position.y = 1800;
+      yaw.add(pitch);
+      [this.viewPoint, this._pitch] = [yaw, pitch];
+      // Bind events
+      window.addEventListener("keydown", this.onKeyDown, false);
+      window.addEventListener("keyup", this.onKeyUp, false);
+      window.addEventListener("resize", this.onWindowResize, false);
+      document.addEventListener("pointerlockchange", this.pointerLockChange, false);
+      document.addEventListener("mozpointerlockchange", this.pointerLockChange, false);
+      document.addEventListener("webkitpointerlockchange", this.pointerLockChange, false);
+      this.domElement.addEventListener("mousedown", this.onMouseDown, false);
+      this.domElement.addEventListener("mousemove", this.onMouseMove, false);
+      this.domElement.addEventListener("mouseup", this.onMouseUp, false);
+    }
+
+    onWindowResize() {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      return this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    onKeyDown(event) {
+      var action;
+      console.log(event.code, "Down");
+      action = this._keyMap[event.code];
+      if (action != null) {
+        this.clock.getDelta();
+        return action(true);
+      }
+    }
+
+    onKeyUp(event) {
+      var action;
+      console.log(event.code, "Up");
+      action = this._keyMap[event.code];
+      if (action != null) {
+        return action(false);
+      }
+    }
+
+    onMouseDown(event) {
+      this.domElement.requestPointerLock();
+      this._mouse.locked = true;
+      this._mouse.origin.set(event.pageX, event.pageY);
+      return console.log("Mouse Down", this._mouse.origin);
+    }
+
+    onMouseMove(event) {
+      var dX, dY;
+      if (!this._mouse.locked) {
+        return;
+      }
+      dX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+      dY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+      this.viewPoint.rotation.y -= dX * 0.002;
+      this._pitch.rotation.x -= dY * 0.002;
+      return this._pitch.rotation.x = Math.max(-0.5 * Math.PI, Math.min(0.5 * Math.PI, this._pitch.rotation.x));
+    }
+
+    onMouseUp(event) {
+      console.log("Mouse Up");
+      this._mouse.locked = false;
+      return document.exitPointerLock();
+    }
+
+    onPointerLockChanged() {
+      if (!this._pointerLockElement) {
+        return this._mouse.locked = false;
+      }
     }
 
     update() {
-      return this.stats.update();
+      var dX, dY, dZ, delta, update;
+      this.stats.update();
+      [update, delta] = [false, void 0];
+      if (this._moveLeft && !this._moveRight) {
+        dX = -1;
+      } else if (this._moveRight && !this._moveLeft) {
+        dX = 1;
+      } else {
+        dX = 0;
+      }
+      if (this._moveForward && !this._moveBackward) {
+        dZ = -1;
+      } else if (this._moveBackward && !this._moveForward) {
+        dZ = 1;
+      } else {
+        dZ = 0;
+      }
+      if (this._moveUp && !this._moveDown) {
+        dY = 1;
+      } else if (this._moveDown && !this._moveUp) {
+        dY = -1;
+      } else {
+        dY = 0;
+      }
+      if (dX !== 0) {
+        if (delta == null) {
+          delta = this.clock.getDelta();
+        }
+        this.viewPoint.translateX(this.walkSpeed * delta * dX);
+        update = true;
+      }
+      if (dZ !== 0) {
+        if (delta == null) {
+          delta = this.clock.getDelta();
+        }
+        this.viewPoint.translateZ(this.walkSpeed * delta * dZ);
+        update = true;
+      }
+      if (dY !== 0) {
+        if (delta == null) {
+          delta = this.clock.getDelta();
+        }
+        this.viewPoint.translateY(this.walkSpeed * delta * dY);
+        update = true;
+      }
+      if (update) {
+        return this.camera.updateProjectionMatrix();
+      }
     }
 
   };

@@ -4,9 +4,6 @@ class Viewer
 
 
     run: ->
-        # Create the ui
-        ui = new UI
-
         # Initialise the renderer
         renderer = new THREE.WebGLRenderer {antialias:true}
         renderer.setSize window.innerWidth, window.innerHeight
@@ -29,21 +26,19 @@ class Viewer
             [w, h] = [window.innerWidth, window.innerHeight]
             camera = new THREE.PerspectiveCamera(
                 75, w / h, 1e-03 * scale,  10 * scale)
-            camera.position.x = 0.5 * scale
-            camera.position.y = 0.5 * scale
-            camera.position.z = 0.5 * scale
 
-            # Set the camera controls
-            controls = new THREE.TrackballControls camera, renderer.domElement
-            controls.rotateSpeed = 3.0
-            controls.zoomSpeed = 0.5
+            # Create the ui
+            ui = new UI renderer, camera, renderer.domElement
+            scene.add ui.viewPoint
+            ui.viewPoint.position.x = 0.5 * scale
+            ui.viewPoint.position.y = 0.5 * scale
+            ui.viewPoint.position.z = 0.5 * scale
 
             # Return the rendering routine
             render = ->
                 requestAnimationFrame render
                 renderer.render scene, camera
 
-                do controls.update
                 do ui.update
             render
 
@@ -71,13 +66,149 @@ class Viewer
 
 
 class UI
-    constructor: ->
+    constructor: (@renderer, @camera, @domElement) ->
         @stats = new Stats
         document.body.appendChild @stats.domElement
+        @clock = new THREE.Clock true
+
+        @walkSpeed = 5000.0
+
+        scope = this
+        @_keyMap =
+            KeyA: (state) -> scope._moveLeft = state
+            KeyW: (state) -> scope._moveForward = state
+            KeyD: (state) -> scope._moveRight = state
+            KeyS: (state) -> scope._moveBackward = state
+            KeyQ: (state) -> scope._moveDown = state
+            KeyE: (state) -> scope._moveUp = state
+
+        @_mouse =
+            locked: false
+            origin: new THREE.Vector2
+
+        # Smoothen the pointer lock API
+        @domElement.requestPointerLock = @domElement.requestPointerLock or
+                                         @domElement.mozRequestPointerLock or
+                                         @domElement.webkitPointerLockElement
+        @_pointerLockElement = document.pointerLockElement or
+                               document.mozPointerLockElement or
+                               document.webkitPointerLockElement
+        document.exitPointerLock = document.exitPointerLock or
+                                   document.mozExitPointerLock or
+                                   document.webkitExitPointerLock
+
+        # Wrap the camera
+        pitch = new THREE.Object3D
+        pitch.add @camera
+        yaw = new THREE.Object3D
+        yaw.position.y = 1800
+        yaw.add pitch
+        [@viewPoint, @_pitch] = [yaw, pitch]
+
+        # Bind events
+        window.addEventListener "keydown", @onKeyDown, false
+        window.addEventListener "keyup", @onKeyUp, false
+        window.addEventListener "resize", @onWindowResize, false
+        document.addEventListener(
+            "pointerlockchange", @pointerLockChange, false)
+        document.addEventListener(
+            "mozpointerlockchange", @pointerLockChange, false)
+        document.addEventListener(
+            "webkitpointerlockchange", @pointerLockChange, false)
+        @domElement.addEventListener "mousedown", @onMouseDown, false
+        @domElement.addEventListener "mousemove", @onMouseMove, false
+        @domElement.addEventListener "mouseup", @onMouseUp, false
+
+
+    onWindowResize: =>
+        @camera.aspect = window.innerWidth / window.innerHeight
+        do @camera.updateProjectionMatrix
+        @renderer.setSize window.innerWidth, window.innerHeight
+
+
+    onKeyDown: (event) =>
+        console.log event.code, "Down"
+
+        action = @_keyMap[event.code]
+        if action?
+            do @clock.getDelta
+            action(true)
+
+
+    onKeyUp: (event) =>
+        console.log event.code, "Up"
+
+        action = @_keyMap[event.code]
+        action(false) if action?
+
+
+    onMouseDown: (event) =>
+        do @domElement.requestPointerLock
+        @_mouse.locked = true
+        @_mouse.origin.set event.pageX, event.pageY
+        console.log "Mouse Down", @_mouse.origin
+
+
+    onMouseMove: (event) =>
+        return if not @_mouse.locked
+        dX = event.movementX or event.mozMovementX or event.webkitMovementX or 0
+        dY = event.movementY or event.mozMovementY or event.webkitMovementY or 0
+
+        @viewPoint.rotation.y -= dX * 0.002
+        @_pitch.rotation.x -= dY * 0.002
+        @_pitch.rotation.x = Math.max(
+            -0.5 * Math.PI
+            Math.min 0.5 * Math.PI, @_pitch.rotation.x
+        )
+
+
+    onMouseUp: (event) =>
+        console.log "Mouse Up"
+        @_mouse.locked = false
+        do document.exitPointerLock
+
+
+    onPointerLockChanged: =>
+        if (!@_pointerLockElement)
+            @_mouse.locked = false
 
 
     update: ->
         do @stats.update
+
+        [update, delta] = [false, undefined]
+        if @_moveLeft and !@_moveRight
+            dX = -1
+        else if @_moveRight and !@_moveLeft
+            dX = 1
+        else
+            dX = 0
+        if @_moveForward and !@_moveBackward
+            dZ = -1
+        else if @_moveBackward and !@_moveForward
+            dZ = 1
+        else
+            dZ = 0
+        if @_moveUp and !@_moveDown
+            dY = 1
+        else if @_moveDown and !@_moveUp
+            dY = -1
+        else
+            dY = 0
+
+        if dX != 0
+            delta = do @clock.getDelta if !delta?
+            @viewPoint.translateX(@walkSpeed * delta * dX)
+            update = true
+        if dZ != 0
+            delta = do @clock.getDelta if !delta?
+            @viewPoint.translateZ(@walkSpeed * delta * dZ)
+            update = true
+        if dY != 0
+            delta = do @clock.getDelta if !delta?
+            @viewPoint.translateY(@walkSpeed * delta * dY)
+            update = true
+        do @camera.updateProjectionMatrix if update
 
 
 # Run the viewer
